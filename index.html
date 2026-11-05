@@ -1,0 +1,59 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vendor Performance Reporting · Nae Kitakado</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--cocoa:#5B3A3A;--ink:#3E2A2F;--mauve:#8A6470;--blush:#FBE3EC;--pink:#F4B4CD;--rose:#F2A7C3;--card:#fff;--bg:#FDF4F7;--line:#F3D3DF}
+*{box-sizing:border-box}body{margin:0;font-family:'DM Sans',Inter,sans-serif;color:var(--ink);background:var(--bg)}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 16px 48px}
+.hero{background:linear-gradient(120deg,var(--blush),var(--pink));border-radius:24px;padding:28px;position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.3)}
+.tag{display:inline-block;background:#fff;color:var(--cocoa);font-size:12px;letter-spacing:.14em;font-weight:600;border-radius:99px;padding:4px 12px}
+h1{color:var(--cocoa);font-size:clamp(28px,5vw,44px);margin:10px 0 6px;font-weight:600}
+.hero p{margin:0;max-width:640px;position:relative;z-index:1}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px}
+h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--cocoa);margin:0 0 12px}
+label{font-size:13px;font-weight:600;color:var(--mauve);display:block;margin:10px 0 4px}
+select,textarea,input{width:100%;font:inherit;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;color:var(--ink)}
+input[type=range],input[type=checkbox]{accent-color:var(--cocoa)}textarea{min-height:120px;resize:vertical}
+button{background:var(--cocoa);color:#fff;border:0;border-radius:99px;padding:11px 20px;font:inherit;font-weight:600;letter-spacing:.06em;cursor:pointer;margin-top:12px}
+button.ghost{background:#fff;color:var(--cocoa);border:1px solid var(--rose)}
+.pill{display:inline-block;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600;margin:2px}
+.high{background:#F9D0D6;color:#8A2C3A}.medium{background:#FCE6C8;color:#7A4E12}.low{background:#DDF1E4;color:#1E5A36}
+ul{padding-left:18px;margin:6px 0}li{margin:4px 0}li::marker{color:var(--rose)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}th{color:var(--mauve)}
+.kpi{display:flex;gap:10px;flex-wrap:wrap}.kpi div{flex:1;min-width:120px;background:var(--blush);border-radius:14px;padding:12px}.kpi b{display:block;font-size:24px;color:var(--cocoa)}
+pre{background:#2E1F23;color:#FBE3EC;border-radius:12px;padding:12px;font-size:12px;overflow:auto;max-height:320px}
+footer{text-align:center;font-size:13px;color:var(--mauve);margin-top:28px}a{color:var(--cocoa)}
+.muted{color:var(--mauve);font-size:13px}
+</style></head><body><div class="wrap">
+<div class="hero"><span class="tag">LIVE DEMO</span><h1>Vendor Performance Reporting</h1><p>Turns raw weekly marketplace vendor exports into a clean performance report. Edit the CSV or upload your own file to see validation, week-over-week changes and stock-risk flags.</p></div><div class="grid"><div class="card"><h2>1 · Upload weekly vendor report (CSV)</h2>
+<textarea id="csv" style="font-family:monospace;font-size:12px;min-height:170px">week,asin,product,ordered_units,ordered_revenue,glance_views,in_stock_pct
+2026-W43,B0DEMO001,Bamboo Cutting Board,420,12600,9800,98
+2026-W43,B0DEMO002,Silicone Spatula Set,610,9150,15400,92
+2026-W43,B0DEMO003,Glass Meal Prep Box,300,10500,8200,71
+2026-W44,B0DEMO001,Bamboo Cutting Board,465,13950,10100,99
+2026-W44,B0DEMO002,Silicone Spatula Set,540,8100,14900,88
+2026-W44,B0DEMO003,Glass Meal Prep Box,210,7350,7900,54</textarea>
+<input type="file" id="file" accept=".csv" style="margin-top:8px"><button onclick="run()">UPLOAD & BUILD REPORT</button>
+<p class="muted">The pipeline validates headers, rejects duplicate weeks, and appends clean rows to history.</p></div>
+<div class="card"><h2>2 · Validation</h2><div id="val" class="muted">—</div></div></div>
+<div class="card" style="margin-top:18px"><h2>Latest week KPIs</h2><div class="kpi" id="kpi"></div></div>
+<div class="grid"><div class="card"><h2>Week-over-week by product</h2><table id="wow"></table></div><div class="card"><h2>Revenue trend</h2><svg id="chart" viewBox="0 0 400 200" width="100%"></svg></div></div>
+<script>
+const $=i=>document.getElementById(i);const REQ=["week","asin","product","ordered_units","ordered_revenue","glance_views","in_stock_pct"];
+$("file").onchange=e=>{const f=e.target.files[0];f&&f.text().then(t=>{$("csv").value=t;run()})};
+function run(){const [h,...l]=$("csv").value.trim().split("\n"),k=h.split(",").map(s=>s.trim()),miss=REQ.filter(r=>!k.includes(r));
+ if(miss.length){$("val").innerHTML=`<span class="pill high">rejected</span> Missing columns: ${miss.join(", ")}`;return}
+ const rows=l.map(x=>{const v=x.split(",");const o=Object.fromEntries(k.map((c,i)=>[c,v[i]]));REQ.slice(3).forEach(c=>o[c]=+o[c]);return o});const seen=new Set(),dup=[],bad=[];
+ const clean=rows.filter(r=>{const key=r.week+r.asin;if(seen.has(key)){dup.push(key);return false}seen.add(key);if(isNaN(r.ordered_units)){bad.push(r.asin);return false}return true});
+ $("val").innerHTML=`<span class="pill low">accepted</span> ${clean.length} rows · <span class="pill ${dup.length?'medium':'low'}">${dup.length} duplicates skipped</span> <span class="pill ${bad.length?'medium':'low'}">${bad.length} bad rows</span>`;
+ const weeks=[...new Set(clean.map(r=>r.week))].sort(),cur=weeks.at(-1),prev=weeks.at(-2),wk=w=>clean.filter(r=>r.week==w),sum=(a,c)=>a.reduce((t,r)=>t+r[c],0);
+ const c=wk(cur),rev=sum(c,"ordered_revenue"),u=sum(c,"ordered_units"),gv=sum(c,"glance_views"),prevRev=prev?sum(wk(prev),"ordered_revenue"):0,ch=prev?(rev-prevRev)/prevRev*100:0;
+ $("kpi").innerHTML=`<div><b>$${rev.toLocaleString()}</b>revenue ${cur}</div><div><b><span style="color:${ch>=0?'#1E5A36':'#8A2C3A'}">${ch>=0?'+':''}${ch.toFixed(1)}%</span></b>vs ${prev||'—'}</div><div><b>${u.toLocaleString()}</b>units</div><div><b>${(u/gv*100).toFixed(1)}%</b>conversion</div>`;
+ $("wow").innerHTML="<tr><th>Product</th><th>Revenue</th><th>WoW</th><th>In stock</th></tr>"+c.map(r=>{const p=prev&&wk(prev).find(x=>x.asin==r.asin),d=p?(r.ordered_revenue-p.ordered_revenue)/p.ordered_revenue*100:0;return`<tr><td>${r.product}</td><td>$${r.ordered_revenue.toLocaleString()}</td><td><span class="pill ${d>=0?'low':'high'}">${d>=0?'+':''}${d.toFixed(1)}%</span></td><td><span class="pill ${r.in_stock_pct>=90?'low':r.in_stock_pct>=70?'medium':'high'}">${r.in_stock_pct}%</span>${r.in_stock_pct<70?' ⚠️ stock risk':''}</td></tr>`}).join("");
+ const pts=weeks.map(w=>sum(wk(w),"ordered_revenue")),mx=Math.max(...pts),X=i=>40+i*(320/Math.max(weeks.length-1,1)),Y=v=>170-v/mx*140;
+ $("chart").innerHTML=`<polyline fill="none" stroke="#5B3A3A" stroke-width="3" points="${pts.map((v,i)=>X(i)+","+Y(v)).join(" ")}"/>`+pts.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#F2A7C3"/><text x="${X(i)}" y="190" text-anchor="middle" font-size="12" fill="#8A6470">${weeks[i]}</text><text x="${X(i)}" y="${Y(v)-10}" text-anchor="middle" font-size="12" fill="#5B3A3A">$${(v/1000).toFixed(1)}k</text>`).join("")}
+run();
+</script>
+<footer>Built by <b>Nae Kitakado</b>, AI Automation Consultant · <a href="https://github.com/naekitakadoportfolio">GitHub</a> · <a href="https://www.linkedin.com/in/nae-k-203194265">LinkedIn</a> · <a href="https://sider.ai/agents/web-creator/share/695ea81100a621619985fdfb">Portfolio</a><br>All data is fictional. This demo runs entirely in your browser.</footer></div></body></html>
