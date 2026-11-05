@@ -1,0 +1,4 @@
+{"title":"Vendor Performance Reporting","brand":"VENDOR REPORTING","theme":"silver","storageKey":"vprDemo","desc":"Weekly marketplace vendor CSV ingestion and performance reporting",
+"css":".legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle} svg{color:var(--ink)}",
+"nav":[["overview","📊 Overview"],["upload","📥 Upload"],["trends","📈 Weekly trends"],["product","🔎 Product drill-down"],["alerts","🚨 Stock & risk alerts"],["history","🗂 Upload history"],["builder","🧮 Report builder"],["settings","⚙️ Settings"]],
+"appJs":"/home/claude/repos2/vendor-performance-reporting/src/app.js"}

@@ -1,7 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vendor Performance Reporting · Nae Kitakado</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
+<title>Vendor Performance Reporting · Demo</title><meta name="description" content="Weekly marketplace vendor CSV ingestion and performance reporting">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>
 :root{--bg1:#F4F6F9;--bg2:#E6EAF0;--ink:#0F2A44;--mauve:#5B6B7C;--cocoa:#0F2A44;--sky:#C0C8D2;--card:rgba(255,255,255,.85);--line:rgba(15,42,68,.12);--blush:rgba(192,200,210,.28);--rose:#C0C8D2;--ok-bg:#DDF1E4;--ok:#1E5A36;--warn-bg:#FCEBC8;--warn:#7A4E12;--bad-bg:#F8D7DA;--bad:#8A2C3A}
 [data-theme=dark]{--bg1:#0A1726;--bg2:#13263B;--ink:#E8EDF3;--mauve:#A3AFBD;--card:rgba(19,38,59,.75);--line:rgba(192,200,210,.18);--blush:rgba(192,200,210,.10);--cocoa:#C0C8D2;--ok-bg:rgba(46,160,90,.2);--ok:#8FE0AE;--warn-bg:rgba(230,160,40,.2);--warn:#F5C97A;--bad-bg:rgba(220,80,90,.2);--bad:#F5A3AC}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,'Segoe UI',system-ui,sans-serif;color:var(--ink);background:linear-gradient(160deg,var(--bg1),var(--bg2));background-attachment:fixed;min-height:100vh}
@@ -26,35 +25,109 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 pre{background:#0B1E2A;color:#CFE8F4;border-radius:10px;padding:12px;font-size:12px;overflow:auto;max-height:320px}
 footer{text-align:center;font-size:12px;color:var(--mauve);margin-top:28px}a{color:var(--cocoa)}.muted{color:var(--mauve);font-size:13px}
 .hero:after{display:none}
-</style></head><body><div class="wrap"><div class="topbar"><span class="brand">PORTAL · DEMO</span><button class="ghost" id="themeBtn" style="margin:0;padding:6px 12px" onclick="(()=>{const h=document.documentElement,n=h.dataset.theme==='dark'?'light':'dark';h.dataset.theme=n;try{localStorage.setItem('demoTheme',n)}catch(e){};themeBtn.textContent=n==='dark'?'☀️ Light':'🌙 Dark'})()">🌙 Dark</button></div>
-<script>try{const s=localStorage.getItem('demoTheme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=s;addEventListener('DOMContentLoaded',()=>themeBtn.textContent=s==='dark'?'☀️ Light':'🌙 Dark')}catch(e){}</script>
-<div class="hero"><span class="tag">LIVE DEMO · FICTIONAL DATA</span><h1>Vendor Performance Reporting</h1><p>Turns raw weekly marketplace vendor exports into a clean performance report. Edit the CSV or upload your own file to see validation, week-over-week changes and stock-risk flags.</p></div><div class="grid"><div class="card"><h2>1 · Upload weekly vendor report (CSV)</h2>
-<textarea id="csv" style="font-family:monospace;font-size:12px;min-height:170px">week,asin,product,ordered_units,ordered_revenue,glance_views,in_stock_pct
-2026-W43,B0DEMO001,Bamboo Cutting Board,420,12600,9800,98
-2026-W43,B0DEMO002,Silicone Spatula Set,610,9150,15400,92
-2026-W43,B0DEMO003,Glass Meal Prep Box,300,10500,8200,71
-2026-W44,B0DEMO001,Bamboo Cutting Board,465,13950,10100,99
-2026-W44,B0DEMO002,Silicone Spatula Set,540,8100,14900,88
-2026-W44,B0DEMO003,Glass Meal Prep Box,210,7350,7900,54</textarea>
-<input type="file" id="file" accept=".csv" style="margin-top:8px"><button onclick="run()">UPLOAD & BUILD REPORT</button>
-<p class="muted">The pipeline validates headers, rejects duplicate weeks, and appends clean rows to history.</p></div>
-<div class="card"><h2>2 · Validation</h2><div id="val" class="muted">—</div></div></div>
-<div class="card" style="margin-top:18px"><h2>Latest week KPIs</h2><div class="kpi" id="kpi"></div></div>
-<div class="grid"><div class="card"><h2>Week-over-week by product</h2><table id="wow"></table></div><div class="card"><h2>Revenue trend</h2><svg id="chart" viewBox="0 0 400 200" width="100%"></svg></div></div>
+</style><style>
+.shell{display:grid;grid-template-columns:220px 1fr;gap:16px;margin-top:4px}@media(max-width:820px){.shell{grid-template-columns:1fr}}
+.side{background:var(--card);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px;padding:14px;height:fit-content;position:sticky;top:12px}
+.side a{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:10px;color:var(--ink);text-decoration:none;font-weight:500;margin:2px 0}
+.side a.on{background:var(--cocoa);color:#fff}.side a:hover:not(.on){background:var(--blush)}
+.badge{background:#C0392B;color:#fff;border-radius:99px;font-size:11px;padding:1px 7px}
+.who{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.cal .h{font-size:11px;font-weight:700;color:var(--mauve);text-align:center;letter-spacing:.08em}
+.day{min-height:92px;border:1px solid var(--line);border-radius:10px;padding:6px;background:rgba(255,255,255,.35);cursor:pointer;font-size:12px;overflow:hidden}
+[data-theme=dark] .day{background:rgba(255,255,255,.04)}.day:hover{outline:2px solid var(--sky)}.day.off{opacity:.4}.day.we{background:var(--blush)}.day.today{outline:2px solid var(--cocoa)}.day.sel{background:rgba(29,76,147,.18)}
+.ev{border-radius:5px;padding:1px 5px;margin-top:3px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
+.Vacation{background:#1D4C93}.Sick{background:#C27C0E}.Personal{background:#2E8B57}.Protected{background:#6B7A86}.Holiday{background:#89CDE7;color:#14384E}.pending{opacity:.6;border:1px dashed #fff}
+.toast{position:fixed;right:18px;bottom:18px;background:var(--cocoa);color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;transform:translateY(10px);transition:.25s;z-index:9;max-width:340px}.toast.show{opacity:1;transform:none}
+.modal{position:fixed;inset:0;background:rgba(10,30,45,.45);display:none;align-items:center;justify-content:center;z-index:8;padding:16px}.modal.show{display:flex}.modal .card{max-width:480px;width:100%;background:var(--bg1)}
+.row{display:flex;gap:10px}.row>*{flex:1}.legend span{margin-right:10px;font-size:12px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle}
+.bar{background:var(--blush);border-radius:99px;height:8px;margin-top:4px}.bar div{height:8px;border-radius:99px;background:var(--cocoa)}
+</style><style>.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle} svg{color:var(--ink)}</style></head><body><div class="wrap">
+<div class="topbar"><span class="brand">VENDOR REPORTING · DEMO</span><span><button class="ghost" style="margin:0;padding:6px 12px" onclick="resetAll()">↺ Reset demo data</button> <button class="ghost" id="themeBtn" style="margin:0;padding:6px 12px" onclick="toggleTheme()">🌙 Dark</button></span></div>
+<div class="shell"><nav class="side"><a href="#/overview" data-r="overview">📊 Overview <span class="badge" data-b="overview"></span></a>
+<a href="#/upload" data-r="upload">📥 Upload <span class="badge" data-b="upload"></span></a>
+<a href="#/trends" data-r="trends">📈 Weekly trends <span class="badge" data-b="trends"></span></a>
+<a href="#/product" data-r="product">🔎 Product drill-down <span class="badge" data-b="product"></span></a>
+<a href="#/alerts" data-r="alerts">🚨 Stock & risk alerts <span class="badge" data-b="alerts"></span></a>
+<a href="#/history" data-r="history">🗂 Upload history <span class="badge" data-b="history"></span></a>
+<a href="#/builder" data-r="builder">🧮 Report builder <span class="badge" data-b="builder"></span></a>
+<a href="#/settings" data-r="settings">⚙️ Settings <span class="badge" data-b="settings"></span></a></nav><main id="view"></main></div>
+<div class="modal" id="modal" onclick="if(event.target==this)closeM()"><div class="card" id="mbody"></div></div><div class="toast" id="toast"></div>
+<footer>Portfolio rebuild by <b>Nae Kitakado</b>, AI Automation Consultant · <a href="https://github.com/naekitakadoportfolio/vendor-performance-reporting">Source</a> · <a href="https://www.linkedin.com/in/nae-k-203194265">LinkedIn</a><br>All data is fictional. Changes are saved in your browser only.</footer></div>
 <script>
-const $=i=>document.getElementById(i);const REQ=["week","asin","product","ordered_units","ordered_revenue","glance_views","in_stock_pct"];
-$("file").onchange=e=>{const f=e.target.files[0];f&&f.text().then(t=>{$("csv").value=t;run()})};
-function run(){const [h,...l]=$("csv").value.trim().split("\n"),k=h.split(",").map(s=>s.trim()),miss=REQ.filter(r=>!k.includes(r));
- if(miss.length){$("val").innerHTML=`<span class="pill high">rejected</span> Missing columns: ${miss.join(", ")}`;return}
- const rows=l.map(x=>{const v=x.split(",");const o=Object.fromEntries(k.map((c,i)=>[c,v[i]]));REQ.slice(3).forEach(c=>o[c]=+o[c]);return o});const seen=new Set(),dup=[],bad=[];
- const clean=rows.filter(r=>{const key=r.week+r.asin;if(seen.has(key)){dup.push(key);return false}seen.add(key);if(isNaN(r.ordered_units)){bad.push(r.asin);return false}return true});
- $("val").innerHTML=`<span class="pill low">accepted</span> ${clean.length} rows · <span class="pill ${dup.length?'medium':'low'}">${dup.length} duplicates skipped</span> <span class="pill ${bad.length?'medium':'low'}">${bad.length} bad rows</span>`;
- const weeks=[...new Set(clean.map(r=>r.week))].sort(),cur=weeks.at(-1),prev=weeks.at(-2),wk=w=>clean.filter(r=>r.week==w),sum=(a,c)=>a.reduce((t,r)=>t+r[c],0);
- const c=wk(cur),rev=sum(c,"ordered_revenue"),u=sum(c,"ordered_units"),gv=sum(c,"glance_views"),prevRev=prev?sum(wk(prev),"ordered_revenue"):0,ch=prev?(rev-prevRev)/prevRev*100:0;
- $("kpi").innerHTML=`<div><b>$${rev.toLocaleString()}</b>revenue ${cur}</div><div><b><span style="color:${ch>=0?'#1E5A36':'#8A2C3A'}">${ch>=0?'+':''}${ch.toFixed(1)}%</span></b>vs ${prev||'—'}</div><div><b>${u.toLocaleString()}</b>units</div><div><b>${(u/gv*100).toFixed(1)}%</b>conversion</div>`;
- $("wow").innerHTML="<tr><th>Product</th><th>Revenue</th><th>WoW</th><th>In stock</th></tr>"+c.map(r=>{const p=prev&&wk(prev).find(x=>x.asin==r.asin),d=p?(r.ordered_revenue-p.ordered_revenue)/p.ordered_revenue*100:0;return`<tr><td>${r.product}</td><td>$${r.ordered_revenue.toLocaleString()}</td><td><span class="pill ${d>=0?'low':'high'}">${d>=0?'+':''}${d.toFixed(1)}%</span></td><td><span class="pill ${r.in_stock_pct>=90?'low':r.in_stock_pct>=70?'medium':'high'}">${r.in_stock_pct}%</span>${r.in_stock_pct<70?' ⚠️ stock risk':''}</td></tr>`}).join("");
- const pts=weeks.map(w=>sum(wk(w),"ordered_revenue")),mx=Math.max(...pts),X=i=>40+i*(320/Math.max(weeks.length-1,1)),Y=v=>170-v/mx*140;
- $("chart").innerHTML=`<polyline fill="none" stroke="#0F2A44" stroke-width="3" points="${pts.map((v,i)=>X(i)+","+Y(v)).join(" ")}"/>`+pts.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="#C0C8D2"/><text x="${X(i)}" y="190" text-anchor="middle" font-size="12" fill="#5B6B7C">${weeks[i]}</text><text x="${X(i)}" y="${Y(v)-10}" text-anchor="middle" font-size="12" fill="#0F2A44">$${(v/1000).toFixed(1)}k</text>`).join("")}
-run();
-</script>
-<footer>Built by <b>Nae Kitakado</b>, AI Automation Consultant · <a href="https://github.com/naekitakadoportfolio">GitHub</a> · <a href="https://www.linkedin.com/in/nae-k-203194265">LinkedIn</a> · <a href="https://sider.ai/agents/web-creator/share/695ea81100a621619985fdfb">Portfolio</a><br>All data is fictional. This demo runs entirely in your browser.</footer></div></body></html>
+const REQ=["week","sku","product","ordered_units","ordered_revenue","glance_views","in_stock_pct"];
+const PRODS=[["SKU-1001","Bamboo Cutting Board",30,9800],["SKU-1002","Silicone Spatula Set",15,15000],["SKU-1003","Glass Meal Prep Box",35,8200],["SKU-1004","Cast Iron Skillet",42,6400],["SKU-1005","Herb Keeper Jar",18,5200],["SKU-1006","Knife Sharpener",24,7100],["SKU-1007","Reusable Food Wraps",12,9900],["SKU-1008","Spice Rack Organizer",28,4300]];
+const WEEKS=["2026-W37","2026-W38","2026-W39","2026-W40","2026-W41","2026-W42","2026-W43","2026-W44"];
+function SEED(){let seed=7;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280};const rows=[];
+ PRODS.forEach(([sku,p,price,gv],pi)=>WEEKS.forEach((w,wi)=>{const trend=1+(pi%3-1)*0.04*wi,g=Math.round(gv*trend*(0.9+rnd()*0.2)),cv=0.03+rnd()*0.03,u=Math.round(g*cv);let st=Math.round(85+rnd()*15);if(sku=="SKU-1003"&&wi>5)st=wi==6?71:54;if(sku=="SKU-1006"&&wi==7)st=62;rows.push({week:w,sku,product:p,ordered_units:u,ordered_revenue:u*price,glance_views:g,in_stock_pct:st,batch:1})}));
+ return{rows,batches:[{id:1,at:"Oct 30, 09:14",file:"seed_history.csv",n:rows.length,user:"Reporting team"}],nb:2,th:{stockWarn:90,stockCrit:70,dropPct:15},sel:["SKU-1001","SKU-1003"],log:[{t:"Oct 30, 09:14",m:"📥 Seeded 8 weeks of history (64 rows)"}],lastVal:null}}
+const weeks=()=>[...new Set(S.rows.map(r=>r.week))].sort(),wk=w=>S.rows.filter(r=>r.week==w),sum=(a,c)=>a.reduce((t,r)=>t+r[c],0),money=v=>"$"+Math.round(v).toLocaleString();
+const chg=(a,b)=>b?(a-b)/b*100:0,pct=v=>`<span class="pill ${v>=0?'low':'high'}">${v>=0?'+':''}${v.toFixed(1)}%</span>`;
+function risks(){const w=weeks(),c=w.at(-1),p=w.at(-2),out=[];wk(c).forEach(r=>{const pr=S.rows.find(x=>x.week==p&&x.sku==r.sku);if(r.in_stock_pct<S.th.stockCrit)out.push({r,lvl:"high",why:`In-stock ${r.in_stock_pct}% (critical < ${S.th.stockCrit}%)`});else if(r.in_stock_pct<S.th.stockWarn)out.push({r,lvl:"medium",why:`In-stock ${r.in_stock_pct}% (warn < ${S.th.stockWarn}%)`});if(pr){const d=chg(r.ordered_revenue,pr.ordered_revenue);if(d<-S.th.dropPct)out.push({r,lvl:"medium",why:`Revenue down ${d.toFixed(1)}% WoW`})}});return out}
+function badge(r){if(r=="alerts")return risks().filter(x=>x.lvl=="high").length||""}
+function chart(series,metric,h=220){const w=weeks(),all=series.flatMap(s=>s.v),mx=Math.max(...all,1),X=i=>50+i*(560/Math.max(w.length-1,1)),Y=v=>h-30-v/mx*(h-60),cols=["#1D4C93","#89CDE7","#C27C0E","#2E8B57","#8A2C3A","#6B7A86"];
+ return`<svg viewBox="0 0 640 ${h}" width="100%">${[0,.5,1].map(f=>`<line x1="50" x2="610" y1="${Y(mx*f)}" y2="${Y(mx*f)}" stroke="currentColor" opacity=".12"/><text x="44" y="${Y(mx*f)+4}" text-anchor="end" font-size="10" fill="currentColor" opacity=".6">${metric=="ordered_revenue"?"$"+(mx*f/1000).toFixed(0)+"k":Math.round(mx*f).toLocaleString()}</text>`).join("")}
+ ${series.map((s,si)=>`<polyline fill="none" stroke="${cols[si%6]}" stroke-width="2.5" points="${s.v.map((v,i)=>X(i)+","+Y(v)).join(" ")}"/>${s.v.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3.5" fill="${cols[si%6]}"><title>${s.n} · ${w[i]}: ${v.toLocaleString()}</title></circle>`).join("")}`).join("")}
+ ${w.map((x,i)=>`<text x="${X(i)}" y="${h-10}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".6">${x.slice(5)}</text>`).join("")}</svg><p class="legend muted">${series.map((s,si)=>`<span><i style="background:${cols[si%6]}"></i>${esc(s.n)}</span>`).join("")}</p>`}
+const V={};
+V.overview=()=>{const w=weeks(),c=w.at(-1),p=w.at(-2),cr=wk(c),pr=wk(p),rev=sum(cr,"ordered_revenue"),u=sum(cr,"ordered_units"),g=sum(cr,"glance_views"),top=cr.slice().sort((a,b)=>b.ordered_revenue-a.ordered_revenue);
+ return`<div class="hero"><span class="tag">VENDOR PERFORMANCE · ${c}</span><h1>Weekly performance</h1><p>${S.rows.length} rows across ${w.length} weeks and ${new Set(S.rows.map(r=>r.sku)).size} products.</p></div>
+ <div class="card" style="margin-top:16px"><div class="kpi"><div><b>${money(rev)}</b>revenue ${pct(chg(rev,sum(pr,"ordered_revenue")))}</div><div><b>${u.toLocaleString()}</b>units ${pct(chg(u,sum(pr,"ordered_units")))}</div><div><b>${(u/g*100).toFixed(2)}%</b>conversion</div><div><b>${(sum(cr,"in_stock_pct")/cr.length).toFixed(0)}%</b>avg in-stock</div><div><b>${risks().length}</b>open alerts</div></div></div>
+ <div class="grid"><div class="card"><h2>Revenue trend (all products)</h2>${chart([{n:"Total revenue",v:w.map(x=>sum(wk(x),"ordered_revenue"))}],"ordered_revenue")}</div>
+ <div class="card"><h2>Top products this week</h2><table><tr><th>Product</th><th>Revenue</th><th>WoW</th></tr>${top.slice(0,6).map(r=>{const q=pr.find(x=>x.sku==r.sku);return`<tr><td><a href="#/product?sku=${r.sku}">${esc(r.product)}</a></td><td>${money(r.ordered_revenue)}</td><td>${q?pct(chg(r.ordered_revenue,q.ordered_revenue)):"—"}</td></tr>`}).join("")}</table></div></div>`};
+V.upload=()=>{const v=S.lastVal;return`<div class="grid"><div class="card"><h2>Upload weekly report (CSV)</h2><p class="muted">Required columns: ${REQ.join(", ")}</p><textarea id="csv" style="font-family:monospace;font-size:12px;min-height:180px">week,sku,product,ordered_units,ordered_revenue,glance_views,in_stock_pct
+2026-W45,SKU-1001,Bamboo Cutting Board,410,12300,9700,97
+2026-W45,SKU-1002,Silicone Spatula Set,560,8400,15100,91
+2026-W45,SKU-1003,Glass Meal Prep Box,180,6300,7600,48
+2026-W45,SKU-1004,Cast Iron Skillet,abc,0,6000,95
+2026-W44,SKU-1005,Herb Keeper Jar,200,3600,5000,92</textarea>
+ <input type="file" id="file" accept=".csv" onchange="this.files[0]&&this.files[0].text().then(t=>{$('csv').value=t;validate()})" style="margin-top:8px"><button onclick="validate()">VALIDATE</button></div>
+ <div class="card"><h2>Validation report</h2>${v?`<div class="kpi"><div><b>${v.ok.length}</b>valid rows</div><div><b>${v.dup.length}</b>duplicates</div><div><b>${v.bad.length}</b>rejected</div></div>
+ ${v.missing.length?`<p><span class="pill high">rejected file</span> Missing columns: ${v.missing.join(", ")}</p>`:""}${v.bad.map(b=>`<div><span class="pill high">row ${b.i}</span> ${b.why}</div>`).join("")}${v.dup.map(b=>`<div><span class="pill medium">row ${b.i}</span> ${b.why}</div>`).join("")}
+ ${v.ok.length?`<button onclick="append()">APPEND ${v.ok.length} ROWS TO HISTORY</button>`:""}`:"<p class='muted'>Paste or choose a CSV, then validate.</p>"}</div></div>`};
+function validate(){const [h,...l]=$("csv").value.trim().split("\n"),k=h.split(",").map(s=>s.trim()),missing=REQ.filter(r=>!k.includes(r)),ok=[],bad=[],dup=[],seen=new Set();
+ if(!missing.length)l.forEach((x,i)=>{const v=x.split(","),o=Object.fromEntries(k.map((c,j)=>[c,(v[j]||"").trim()]));REQ.slice(3).forEach(c=>o[c]=Number(o[c]));const key=o.week+o.sku;
+  if(!/^\d{4}-W\d{2}$/.test(o.week))bad.push({i:i+2,why:"bad week format"});else if(REQ.slice(3).some(c=>isNaN(o[c])))bad.push({i:i+2,why:`non-numeric value for ${o.sku}`});else if(o.in_stock_pct<0||o.in_stock_pct>100)bad.push({i:i+2,why:"in_stock_pct out of range"});
+  else if(seen.has(key)||S.rows.some(r=>r.week==o.week&&r.sku==o.sku))dup.push({i:i+2,why:`${o.week} ${o.sku} already in history`});else{seen.add(key);ok.push(o)}});
+ S.lastVal={ok,bad,dup,missing};route()}
+function append(){const id=S.nb++;S.lastVal.ok.forEach(o=>S.rows.push({...o,batch:id}));S.batches.unshift({id,at:new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}),file:"upload.csv",n:S.lastVal.ok.length,user:"You"});L(`📥 Batch #${id}: appended ${S.lastVal.ok.length} rows`);toast(`✅ ${S.lastVal.ok.length} rows appended`);S.lastVal=null;go("overview")}
+V.trends=()=>{const w=weeks(),m=S.metric||"ordered_revenue",skus=[...new Set(S.rows.map(r=>r.sku))];
+ return`<div class="card"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between"><h2 style="margin:0">Weekly trends</h2><select style="width:auto" onchange="S.metric=this.value;route()">${REQ.slice(3).map(c=>`<option ${c==m?"selected":""} value="${c}">${c.replace(/_/g," ")}</option>`).join("")}</select></div>
+ <p class="muted">Pick up to 6 products:</p><div>${skus.map(s=>{const p=S.rows.find(r=>r.sku==s).product;return`<label style="display:inline-flex;gap:6px;align-items:center;margin:2px 10px 2px 0;font-weight:500"><input type="checkbox" style="width:auto" ${S.sel.includes(s)?"checked":""} onchange="pick('${s}',this.checked)">${esc(p)}</label>`}).join("")}</div>
+ ${chart(S.sel.map(s=>({n:S.rows.find(r=>r.sku==s).product,v:w.map(x=>(S.rows.find(r=>r.week==x&&r.sku==s)||{})[m]||0)})),m,260)}</div>`};
+function pick(s,on){if(on&&S.sel.length>=6)return toast("Max 6 products"),route();S.sel=on?[...S.sel,s]:S.sel.filter(x=>x!=s);route()}
+V.product=()=>{const sku=new URLSearchParams(location.hash.split("?")[1]||"").get("sku")||S.rows[0].sku,rs=S.rows.filter(r=>r.sku==sku).sort((a,b)=>a.week<b.week?-1:1);if(!rs.length)return`<div class="card"><p>Unknown product.</p></div>`;const w=weeks();
+ return`<div class="card"><p><a href="#/overview">← Overview</a></p><h1 style="margin:4px 0">${esc(rs[0].product)}</h1><p class="muted">${sku}</p><div class="kpi"><div><b>${money(sum(rs,"ordered_revenue"))}</b>revenue (${rs.length} wks)</div><div><b>${sum(rs,"ordered_units").toLocaleString()}</b>units</div><div><b>${(sum(rs,"ordered_units")/sum(rs,"glance_views")*100).toFixed(2)}%</b>conversion</div><div><b>${rs.at(-1).in_stock_pct}%</b>latest in-stock</div></div>
+ ${chart([{n:"Revenue",v:w.map(x=>(rs.find(r=>r.week==x)||{}).ordered_revenue||0)}],"ordered_revenue")}
+ <table><tr><th>Week</th><th>Units</th><th>Revenue</th><th>Views</th><th>Conv.</th><th>In stock</th></tr>${rs.map(r=>`<tr><td>${r.week}</td><td>${r.ordered_units}</td><td>${money(r.ordered_revenue)}</td><td>${r.glance_views.toLocaleString()}</td><td>${(r.ordered_units/r.glance_views*100).toFixed(2)}%</td><td><span class="pill ${r.in_stock_pct>=S.th.stockWarn?'low':r.in_stock_pct>=S.th.stockCrit?'medium':'high'}">${r.in_stock_pct}%</span></td></tr>`).join("")}</table></div>`};
+V.alerts=()=>{const rk=risks();return`<div class="card"><h2>Stock & performance alerts · ${weeks().at(-1)}</h2>${rk.length?`<table><tr><th>Level</th><th>Product</th><th>Why</th><th></th></tr>${rk.map(x=>`<tr><td><span class="pill ${x.lvl}">${x.lvl=="high"?"critical":"warning"}</span></td><td>${esc(x.r.product)}</td><td>${x.why}</td><td><a href="#/product?sku=${x.r.sku}">View</a></td></tr>`).join("")}</table>`:"<p class='muted'>No alerts at current thresholds.</p>"}<p class="muted">Thresholds are set in Settings.</p></div>`};
+V.history=()=>`<div class="card"><h2>Upload history</h2><table><tr><th>Batch</th><th>When</th><th>File</th><th>Rows</th><th>By</th><th></th></tr>${S.batches.map((b,i)=>`<tr><td>#${b.id}</td><td>${b.at}</td><td>${esc(b.file)}</td><td>${b.n}</td><td>${b.user}</td><td>${i==0&&b.id!=1?`<button class="ghost" style="margin:0;padding:4px 10px" onclick="undo(${b.id})">Undo</button>`:""}</td></tr>`).join("")}</table></div>`;
+function undo(id){openM(`<h2>Undo batch #${id}?</h2><p>This removes ${S.rows.filter(r=>r.batch==id).length} rows from history.</p><button onclick="S.rows=S.rows.filter(r=>r.batch!=${id});S.batches=S.batches.filter(b=>b.id!=${id});L('↩️ Batch #${id} undone');closeM();toast('Batch removed');route()">Undo batch</button> <button class="ghost" onclick="closeM()">Cancel</button>`)}
+V.builder=()=>{const w=weeks(),m=S.bm||["ordered_revenue","ordered_units"],ws=S.bw||w.slice(-4);
+ const rows=[...new Set(S.rows.map(r=>r.sku))].map(s=>{const rs=S.rows.filter(r=>r.sku==s&&ws.includes(r.week));return{p:rs[0]?.product||s,vals:m.map(c=>c=="in_stock_pct"?(rs.length?sum(rs,c)/rs.length:0):sum(rs,c))}});
+ return`<div class="card"><h2>Report builder</h2><label>Metrics</label><div>${REQ.slice(3).map(c=>`<label style="display:inline-flex;gap:6px;margin-right:12px;font-weight:500"><input type="checkbox" style="width:auto" ${m.includes(c)?"checked":""} onchange="S.bm=[...document.querySelectorAll('.bm:checked')].map(x=>x.value);route()" class="bm" value="${c}">${c.replace(/_/g," ")}</label>`).join("")}</div>
+ <label>Weeks</label><div>${w.map(x=>`<label style="display:inline-flex;gap:6px;margin-right:10px;font-weight:500"><input type="checkbox" style="width:auto" class="bw" value="${x}" ${ws.includes(x)?"checked":""} onchange="S.bw=[...document.querySelectorAll('.bw:checked')].map(x=>x.value);route()">${x.slice(5)}</label>`).join("")}</div>
+ <table style="margin-top:12px"><tr><th>Product</th>${m.map(c=>`<th>${c.replace(/_/g," ")}</th>`).join("")}</tr>${rows.map(r=>`<tr><td>${esc(r.p)}</td>${r.vals.map((v,i)=>`<td>${m[i]=="ordered_revenue"?money(v):m[i]=="in_stock_pct"?v.toFixed(0)+"%":Math.round(v).toLocaleString()}</td>`).join("")}</tr>`).join("")}</table>
+ <button onclick="dl()">⬇ DOWNLOAD CSV</button></div>`};
+function dl(){const m=S.bm||["ordered_revenue","ordered_units"],ws=S.bw||weeks().slice(-4);const out=[["product",...m].join(",")];[...new Set(S.rows.map(r=>r.sku))].forEach(s=>{const rs=S.rows.filter(r=>r.sku==s&&ws.includes(r.week));out.push([rs[0]?.product||s,...m.map(c=>c=="in_stock_pct"?(sum(rs,c)/rs.length).toFixed(1):sum(rs,c))].join(","))});const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([out.join("\n")],{type:"text/csv"}));a.download="vendor_report.csv";a.click();L("⬇ Report CSV downloaded");toast("CSV downloaded")}
+V.settings=()=>`<div class="card"><h2>Settings</h2><div class="row"><div><label>Stock warning below (%)</label><input type="number" id="sw" value="${S.th.stockWarn}"></div><div><label>Stock critical below (%)</label><input type="number" id="sc" value="${S.th.stockCrit}"></div><div><label>WoW revenue drop alert (%)</label><input type="number" id="dp" value="${S.th.dropPct}"></div></div>
+ <button onclick="saveTh()">SAVE THRESHOLDS</button><h2 style="margin-top:16px">Activity</h2>${S.log.map(l=>`<div style="padding:4px 0;border-bottom:1px solid var(--line)"><span class="muted">${l.t}</span> · ${l.m}</div>`).join("")}</div>`;
+function saveTh(){const w=+$("sw").value,c=+$("sc").value,d=+$("dp").value;if(!(c>0&&w>c&&w<=100))return toast("Critical must be below warning, both 1–100");if(!(d>0&&d<100))return toast("Drop % must be 1–99");S.th={stockWarn:w,stockCrit:c,dropPct:d};L(`⚙️ Thresholds updated (${w}/${c}/${d})`);toast("Saved");route()}
+
+
+const $=i=>document.getElementById(i);const esc=s=>String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const KEY="vprDemo";let S;try{S=JSON.parse(localStorage.getItem(KEY))||SEED()}catch(e){S=SEED()}if(!S.log)S.log=[];
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function toast(m){const t=$("toast");t.innerHTML=m;t.classList.add("show");clearTimeout(t._);t._=setTimeout(()=>t.classList.remove("show"),3000)}
+function L(m){S.log.unshift({t:new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}),m});if(S.log.length>200)S.log.length=200}
+function openM(h){$("mbody").innerHTML=h;$("modal").classList.add("show")}function closeM(){$("modal").classList.remove("show")}
+function go(r){location.hash="#/"+r}
+function route(){const r=(location.hash.replace("#/","").split("?")[0]||Object.keys(V)[0]);document.querySelectorAll(".side a").forEach(a=>a.classList.toggle("on",a.dataset.r==r));
+ try{$("view").innerHTML=(V[r]||V[Object.keys(V)[0]])()}catch(e){console.error(e);$("view").innerHTML='<div class="card"><h2>Something went wrong</h2><p class="muted">'+esc(e.message)+'</p></div>'}
+ document.querySelectorAll("[data-b]").forEach(b=>{const v=typeof badge=="function"?badge(b.dataset.b):"";b.textContent=v||"";b.style.display=v?"":"none"});
+ if(typeof onRoute=="function")onRoute(r);save()}
+function resetAll(){S=SEED();S.log=S.log||[];save();toast("Demo data reset");route()}
+function toggleTheme(){const h=document.documentElement,n=h.dataset.theme=="dark"?"light":"dark";h.dataset.theme=n;try{localStorage.setItem("demoTheme",n)}catch(e){}$("themeBtn").textContent=n=="dark"?"☀️ Light":"🌙 Dark"}
+try{const t=localStorage.getItem("demoTheme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t;$("themeBtn").textContent=t=="dark"?"☀️ Light":"🌙 Dark"}catch(e){}
+addEventListener("hashchange",route);addEventListener("keydown",e=>{if(e.key=="Escape")closeM()});route();
+
+</script></body></html>
